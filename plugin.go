@@ -2,11 +2,11 @@ package main
 
 import (
 	"crypto/tls"
+
+	"gopkg.in/gomail.v2"
 	log "github.com/Sirupsen/logrus"
 	"github.com/aymerick/douceur/inliner"
-	"github.com/drone/drone-go/template"
 	"github.com/jaytaylor/html2text"
-	"gopkg.in/gomail.v2"
 )
 
 type (
@@ -106,7 +106,7 @@ type (
 )
 
 // Exec will send emails over SMTP
-func (p Plugin) Exec() error {
+func (p *Plugin) Exec() error {
 	var dialer *gomail.Dialer
 
 	if !p.Config.RecipientsOnly {
@@ -125,7 +125,7 @@ func (p Plugin) Exec() error {
 	if p.Config.Username == "" && p.Config.Password == "" {
 		dialer = &gomail.Dialer{Host: p.Config.Host, Port: p.Config.Port}
 	} else {
-		dialer = gomail.NewDialer(p.Config.Host, p.Config.Port, p.Config.Username, p.Config.Password)
+		dialer = gomail.NewPlainDialer(p.Config.Host, p.Config.Port, p.Config.Username, p.Config.Password)
 	}
 	if p.Config.SkipVerify {
 		dialer.TLSConfig = &tls.Config{InsecureSkipVerify: true}
@@ -163,7 +163,7 @@ func (p Plugin) Exec() error {
 	}
 
 	// Render body in HTML and plain text
-	renderedBody, err := template.RenderTrim(p.Config.Body, ctx)
+	renderedBody, err := RenderTrim(p.Config.Body, ctx)
 	if err != nil {
 		log.Errorf("Could not render body template: %v", err)
 		return err
@@ -180,7 +180,7 @@ func (p Plugin) Exec() error {
 	}
 
 	// Render subject
-	subject, err := template.RenderTrim(p.Config.Subject, ctx)
+	subject, err := RenderTrim(p.Config.Subject, ctx)
 	if err != nil {
 		log.Errorf("Could not render subject template: %v", err)
 		return err
@@ -188,7 +188,13 @@ func (p Plugin) Exec() error {
 
 	// Send emails
 	message := gomail.NewMessage()
-	for _, recipient := range p.Config.Recipients {
+	log.Debug("Config.Recipients  => ", p.Config.Recipients)
+	for i, recipient := range p.Config.Recipients {
+		log.Debug("[", i, "] recipient => ", recipient)
+
+		if recipient == "" {
+			continue
+		}
 		message.SetHeader("From", p.Config.From)
 		message.SetAddressHeader("To", recipient, "")
 		message.SetHeader("Subject", subject)
@@ -197,7 +203,7 @@ func (p Plugin) Exec() error {
 
 		if err := gomail.Send(closer, message); err != nil {
 			log.Errorf("Could not send email to %q: %v", recipient, err)
-			return err
+			//return err
 		}
 		message.Reset()
 	}

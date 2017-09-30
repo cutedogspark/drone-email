@@ -4,23 +4,28 @@ import (
 	"os"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/joho/godotenv"
 	"github.com/urfave/cli"
 )
 
+
+var (
+	version = "1.0.0" // build number set at compile-time
+)
+
 func main() {
-	// Load env-file if it exists first
-	if env := os.Getenv("PLUGIN_ENV_FILE"); env != "" {
-		godotenv.Load(env)
-	}
 
 	app := cli.NewApp()
 	app.Name = "email plugin"
 	app.Usage = "email plugin"
 	app.Action = run
-	app.Version = "2.0.2"
+	app.Version = version
 	app.Flags = []cli.Flag{
 		// Plugin environment
+		cli.BoolFlag{
+			Name:   "debug",
+			Usage:  "show debug",
+			EnvVar: "MAIL_DEBUG,PLUGIN_DEBUG",
+		},
 		cli.StringFlag{
 			Name:   "from",
 			Usage:  "from address",
@@ -295,11 +300,15 @@ func main() {
 
 	if err := app.Run(os.Args); err != nil {
 		log.Fatal(err)
-		os.Exit(1)
 	}
 }
 
 func run(c *cli.Context) error {
+
+	if c.Bool("debug") {
+		log.SetLevel(log.DebugLevel)
+	}
+
 	plugin := Plugin{
 		Repo: Repo{
 			FullName: c.String("repo.fullName"),
@@ -371,6 +380,18 @@ func run(c *cli.Context) error {
 			Body:           c.String("template.body"),
 		},
 	}
+
+	log.WithFields(log.Fields{
+		"From":           plugin.Config.From,
+		"Host":           plugin.Config.Host,
+		"Port":           plugin.Config.Port,
+		"Username":       plugin.Config.Username,
+		"SkipVerify":     plugin.Config.SkipVerify,
+		"Recipients":     plugin.Config.Recipients,
+		"RecipientsOnly": plugin.Config.RecipientsOnly,
+		"Subject":        plugin.Config.Subject,
+		"Body":           plugin.Config.Body,
+	}).Debug("Parameter..")
 
 	return plugin.Exec()
 }

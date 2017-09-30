@@ -1,6 +1,10 @@
-FROM alpine:3.4
+FROM alpine:3.6
 
-RUN apk add --no-cache ca-certificates
+RUN apk update && \
+  apk add \
+    ca-certificates \
+    mailcap && \
+  rm -rf /var/cache/apk/*
 
-ADD drone-email /bin/
+ADD bin/linux/amd64/drone-email /bin/
 ENTRYPOINT ["/bin/drone-email"]
